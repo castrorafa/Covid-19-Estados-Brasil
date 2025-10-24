@@ -12,14 +12,5 @@ Breve descrição do objetivo e do contexto: monitorar casos, óbitos e cobertur
 - Dicionário resumido: casos, óbitos, vacinação (1ª, 2ª, reforços), população, região
 - Limitações: revisões retroativas, subnotificação, atrasos de registro
 
-  ## 10. Licença
-
-MIT
-
----
-
-Links
-
-- Código: URL_do_GitHub
+# 3. Licença
 - LinkedIn: https://www.linkedin.com/in/rafaeloliveiracastro/
-- Dashboard: URL_do_Dashboard
