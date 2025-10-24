@@ -1,0 +1,115 @@
+import warnings
+warnings.filterwarnings("ignore")
+
+import os
+import numpy as np
+import pandas as pd
+
+estados = 'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'
+
+dadosuf = pd.read_excel('/content/drive/MyDrive/DataScience/estimativa_dou_2025.xls', header=1)
+dadosuf = dadosuf.drop('Unnamed: 2', axis=1)
+dadosuf.head()
+
+habuf = dadosuf.copy()
+habuf.rename(columns={'BRASIL E UNIDADES DA FEDERAÇÃO':'UF', 'POPULAÇÃO ESTIMADA':'Populacao'}, inplace=True)
+linhas_remover = [0, 1, 9, 19, 24, 28, 33, 34, 35, 36]
+habuf = habuf.drop(linhas_remover)
+habuf = habuf.sort_values(by='UF')
+habuf = habuf.reset_index()
+habuf = habuf.drop('index', axis=1)
+habuf['Populacao'] = habuf['Populacao'].astype(int)
+habuf.head()
+
+#Lendo múltiplos arquivos de um diretório.
+diretorio = '/content/drive/MyDrive/DataScience/Covid-DadosBrasil'
+covid_brasil = []
+for nome_arquivo in os.listdir(diretorio):
+  if nome_arquivo.endswith('.csv'):
+    caminho_completo = os.path.join(diretorio, nome_arquivo)
+    df = pd.read_csv(caminho_completo)
+    covid_brasil.append(df)
+
+#Concatenando Dataframes
+covid_completo = pd.concat(covid_brasil, axis=1)
+covid_completo.head()
+
+# Colocando a coluna 'Ano' como índice e colocando os nomes dos estados como cabeçalho.
+ano_col = covid_completo.filter(like='Ano').iloc[:, 0]
+casos_novos_col = covid_completo.filter(like='Casos Novos')
+covid_final = pd.DataFrame(casos_novos_col.values, index=ano_col)
+covid_final.columns = estados
+covid_final.head()
+
+#Mudando formato e renomeando colunas do Dataframe para facilitar a junção com o Dataframe com dados da população total de cada estado.
+covid_casos = covid_final.reset_index().melt(id_vars='Ano', var_name='UF', value_name='Casos')
+covid_casos.head()
+
+#Criando dicionário com o nome completo dos estados para substituir pela abreviação nos Dataframes.
+estados_completo = dict(zip(estados, habuf['UF']))
+covid_casos['UF'] = covid_casos['UF'].map(estados_completo)
+covid_casos.head()
+
+#Unindo os dois Dataframes.
+covid_merged = pd.merge(covid_casos, habuf, on='UF')
+covid_merged.head()
+
+#Calculando taxa de incidência da doença, mudando a métrica para cada 100k habitantes.
+covid_100k = covid_merged.copy()
+covid_100k['Incidencia(100k_Hab)'] = (covid_merged['Casos']/covid_merged['Populacao']*100000)
+covid_100k['Incidencia(100k_Hab)'] = covid_100k['Incidencia(100k_Hab)'].astype(int)
+covid_100k.head()
+
+estados_siglas = {
+    'Acre':'AC',
+    'Alagoas':'AL',
+    'Amapa':'AP',
+    'Amazonas':'AM',
+    'Bahia':'BA',
+    'Ceara':'CE',
+    'Distrito Federal':'DF',
+    'Espirito Santo':'ES',
+    'Goias':'GO',
+    'Maranhao':'MA',
+    'Mato Grosso':'MT',
+    'Mato Grosso do Sul':'MS',
+    'Minas Gerais':'MG',
+    'Parana':'PR',
+    'Paraiba':'PB',
+    'Para':'PA',
+    'Pernambuco':'PE',
+    'Piaui':'PI',
+    'Rio Grande do Norte':'RN',
+    'Rio Grande do Sul':'RS',
+    'Rio de Janeiro':'RJ',
+    'Rondonia':'RO',
+    'Roraima':'RR',
+    'Santa Catarina':'SC',
+    'Sergipe':'SE',
+    'Sao Paulo':'SP',
+    'Tocantins':'TO'
+}
+
+covid_100k['UF'] = covid_100k['UF'].map(estados_siglas)
+covid_100k
+
+#Importando bibliotecas para gerar gráficos.
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+
+#Gráfico do número de casos de Covid-19 por estado, no período de 2020 a 2025.
+fig = px.line(covid_final, x=covid_final.index, y=covid_final.columns, markers=True, labels={'variable':'Estado'})
+fig.update_layout(width=1300, height=600, font_family='DejaVu Sans', font_size=15, title_font_size=24,
+                  title_text='Número de casos de COVID-19 por estado' + '<br><sup size=1 style="color:#555655">De 2020 a 2025</sup>',
+                  xaxis_title='', yaxis_title='', plot_bgcolor='whitesmoke')
+fig.show()
+
+#Gráfico com a taxa de incidência de cada estado, a cada 100 mil habitantes.
+fig = px.line(covid_100k, x='Ano', y='Incidencia(100k_Hab)', color='UF', markers=True) 
+fig.update_layout(width=1300, height=600, font_family='DejaVu Sans', font_size=15, title_font_size=24,
+                  title='Evolução da Taxa de Incidência de COVID-19 por estado (por 100 mil habitantes)' + 
+                  '<br><sup size=1 style="color:#555655">De 2020 a 2025</sup>',
+                  xaxis_title='',
+                  yaxis_title='')
+fig.show()
